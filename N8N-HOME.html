@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>n8n Webhook Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080c14;
+    --surface: #0d1420;
+    --surface2: #111827;
+    --border: rgba(255,255,255,0.07);
+    --border-active: rgba(99,220,255,0.4);
+    --accent: #63dcff;
+    --accent2: #a78bfa;
+    --accent3: #34d399;
+    --danger: #f87171;
+    --warning: #fbbf24;
+    --text: #f1f5f9;
+    --muted: #64748b;
+    --muted2: #94a3b8;
+    --card-glow: rgba(99,220,255,0.04);
+    --radius: 12px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Helvetica', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(99,220,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,220,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Ambient light */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 400px;
+    background: radial-gradient(ellipse, rgba(99,220,255,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Layout */
+  .app { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* Header */
+  header {
+    padding: 24px 40px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(8,12,20,0.8);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .logo-text {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span {
+    color: var(--accent);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .badge {
+    background: rgba(99,220,255,0.1);
+    border: 1px solid rgba(99,220,255,0.2);
+    color: var(--accent);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Main */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    height: calc(100vh - 73px);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  .btn-add {
+    width: 100%;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, rgba(99,220,255,0.15), rgba(167,139,250,0.15));
+    border: 1px dashed rgba(99,220,255,0.3);
+    border-radius: var(--radius);
+    color: var(--accent);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+
+  .btn-add:hover {
+    background: linear-gradient(135deg, rgba(99,220,255,0.25), rgba(167,139,250,0.25));
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+
+  .webhook-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .webhook-item {
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .webhook-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: transparent;
+    border-radius: 0 2px 2px 0;
+    transition: all 0.2s;
+  }
+
+  .webhook-item:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: var(--border);
+  }
+
+  .webhook-item.active {
+    background: rgba(99,220,255,0.08);
+    border-color: rgba(99,220,255,0.2);
+  }
+
+  .webhook-item.active::before {
+    background: var(--accent);
+  }
+
+  .webhook-item-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .webhook-item-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+
+  .webhook-item.active .webhook-item-name {
+    color: var(--accent);
+  }
+
+  .webhook-item-tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .tag-text { background: rgba(167,139,250,0.15); color: var(--accent2); border: 1px solid rgba(167,139,250,0.2); }
+  .tag-image { background: rgba(52,211,153,0.15); color: var(--accent3); border: 1px solid rgba(52,211,153,0.2); }
+  .tag-data { background: rgba(251,191,36,0.15); color: var(--warning); border: 1px solid rgba(251,191,36,0.2); }
+  .tag-custom { background: rgba(99,220,255,0.15); color: var(--accent); border: 1px solid rgba(99,220,255,0.2); }
+
+  .webhook-item-url {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
+  .btn-delete {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    font-size: 14px;
+    opacity: 0;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .webhook-item:hover .btn-delete {
+    opacity: 1;
+  }
+
+  .btn-delete:hover {
+    color: var(--danger);
+    background: rgba(248,113,113,0.1);
+  }
+
+  /* Panel */
+  .panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 40px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  /* Empty state */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 16px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .empty-icon {
+    font-size: 48px;
+    opacity: 0.4;
+  }
+
+  .empty-state h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--muted2);
+  }
+
+  .empty-state p {
+    font-size: 14px;
+    max-width: 260px;
+    line-height: 1.6;
+  }
+
+  /* Webhook form / detail */
+  .panel-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-name {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .panel-name span {
+    color: var(--accent);
+  }
+
+  .panel-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn {
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #38bdf8);
+    color: #0a0f1a;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(99,220,255,0.3);
+  }
+
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .btn-ghost {
+    background: rgba(255,255,255,0.06);
+    color: var(--muted2);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+  }
+
+  .btn-danger {
+    background: rgba(248,113,113,0.1);
+    color: var(--danger);
+    border: 1px solid rgba(248,113,113,0.2);
+  }
+
+  .btn-danger:hover {
+    background: rgba(248,113,113,0.2);
+  }
+
+  /* Section */
+  .section { margin-bottom: 28px; }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .input-group { margin-bottom: 16px; }
+
+  .input-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted2);
+    margin-bottom: 7px;
+    letter-spacing: 0.3px;
+  }
+
+  .input {
+    width: 100%;
+    padding: 11px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .input:focus {
+    border-color: var(--border-active);
+    box-shadow: 0 0 0 3px rgba(99,220,255,0.08);
+  }
+
+  .input::placeholder { color: var(--muted); }
+
+  .input-syne {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+  }
+
+  select.input {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+
+  textarea.input {
+    resize: vertical;
+    min-height: 80px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  /* Fields grid */
+  .fields-grid {
+    display: grid;
+    gap: 10px;
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    transition: border-color 0.2s;
+    animation: slideIn 0.2s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .field-row:hover { border-color: rgba(99,220,255,0.15); }
+
+  .field-input {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    padding: 2px 0;
+    width: 100%;
+  }
+
+  .field-input::placeholder { color: var(--muted); }
+
+  .field-type {
+    background: transparent;
+    border: none;
+    color: var(--muted2);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    outline: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    width: 100%;
+    appearance: none;
+  }
+
+  .field-remove {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .field-remove:hover { color: var(--danger); background: rgba(248,113,113,0.1); }
+
+  .btn-add-field {
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 9px;
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .btn-add-field:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(99,220,255,0.05);
+  }
+
+  /* Response area */
+  .response-area {
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .response-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .response-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+
+  .status-ok .status-dot { background: var(--accent3); box-shadow: 0 0 8px rgba(52,211,153,0.5); }
+  .status-ok .status-code { color: var(--accent3); }
+  .status-err .status-dot { background: var(--danger); box-shadow: 0 0 8px rgba(248,113,113,0.5); }
+  .status-err .status-code { color: var(--danger); }
+
+  .response-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .response-body {
+    padding: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--muted2);
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--surface);
+    white-space: pre-wrap;
+    word-break: break-all;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  /* Images grid */
+  .images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .result-img {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    transition: transform 0.2s;
+  }
+
+  .result-img:hover { transform: scale(1.02); }
+
+  /* Visual prompts */
+  .prompt-cards {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .prompt-card {
+    padding: 14px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent2);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--muted2);
+    line-height: 1.6;
+  }
+
+  .prompt-card-num {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent2);
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Loading */
+  .loader {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--muted2);
+    font-size: 13px;
+    padding: 20px 0;
+  }
+
+  .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    width: 100%;
+    max-width: 480px;
+    transform: scale(0.95) translateY(10px);
+    transition: transform 0.2s;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+  }
+
+  .modal-overlay.open .modal {
+    transform: scale(1) translateY(0);
+  }
+
+  .modal-title {
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  /* Toast */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .toast {
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: toastIn 0.3s ease;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .toast-success { background: rgba(52,211,153,0.15); border: 1px solid rgba(52,211,153,0.3); color: var(--accent3); }
+  .toast-error { background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+  .toast-info { background: rgba(99,220,255,0.1); border: 1px solid rgba(99,220,255,0.2); color: var(--accent); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 24px 0; }
+
+  /* Two col grid */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">n8n <span>Webhook Hub</span></div>
+    </div>
+    <div class="header-actions">
+      <span class="badge" id="webhook-count">0 webhooks</span>
+      <button class="btn" onclick="window.open('https://YOUR_N8N_URL', '_blank')" style="background:#ff4b33;color:#ffffff;">↗ Open n8n</button>
+      <button class="btn btn-ghost" onclick="openAddModal()">＋ Add Webhook</button>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">Webhooks</div>
+        <button class="btn-add" onclick="openAddModal()">
+          <span>＋</span> Add new webhook
+        </button>
+      </div>
+      <div class="webhook-list" id="webhook-list">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- Panel -->
+    <div class="panel">
+      <div class="panel-body" id="panel-body">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">🔗</div>
+          <h3>No webhook selected</h3>
+          <p>Add a webhook from the sidebar or select one to start sending requests.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Add Webhook Modal -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-title">⚡ Add Webhook</div>
+
+    <div class="two-col">
+      <div class="input-group">
+        <label class="input-label">Name</label>
+        <input class="input input-syne" id="new-name" placeholder="AI Reel Generator" />
+      </div>
+      <div class="input-group">
+        <label class="input-label">Type / Tag</label>
+        <select class="input" id="new-type">
+          <option value="custom">custom</option>
+          <option value="text">text</option>
+          <option value="image">image</option>
+          <option value="data">data</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Webhook URL</label>
+      <input class="input" id="new-url" placeholder="https://your-n8n.com/webhook/abc123" />
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Description (optional)</label>
+      <input class="input input-syne" id="new-desc" placeholder="What does this webhook do?" />
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAddModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="addWebhook()">⚡ Add Webhook</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let webhooks = JSON.parse(localStorage.getItem('n8n_webhooks') || '[]');
+let activeId = null;
+let fields = [];
+let isLoading = false;
+let lastResponse = null;
+
+// Pre-seed example if empty
+if (webhooks.length === 0) {
+  webhooks = [
+    {
+      id: 'demo-1',
+      name: 'AI Reel Generator',
+      url: 'YOUR_N8N_WEBHOOK_URL',
+      type: 'image',
+      desc: 'Generates visual prompts and images for reels from a topic',
+      fields: [{ key: 'topic', label: 'Topic', type: 'text' }]
+    }
+  ];
+  save();
+}
+
+// ─── Persistence ─────────────────────────────────────────────────────────────
+function save() {
+  localStorage.setItem('n8n_webhooks', JSON.stringify(webhooks));
+  renderSidebar();
+  updateBadge();
+}
+
+// ─── Render Sidebar ───────────────────────────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById('webhook-list');
+  if (webhooks.length === 0) {
+    list.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:12px;padding:24px 10px;line-height:1.7">No webhooks yet.<br>Click <b style="color:var(--accent)">Add new webhook</b> to start.</div>`;
+    return;
+  }
+  list.innerHTML = webhooks.map(w => `
+    <div class="webhook-item ${activeId === w.id ? 'active' : ''}" onclick="selectWebhook('${w.id}')">
+      <div class="webhook-item-header">
+        <div>
+          <div class="webhook-item-name">${w.name}</div>
+          <div class="webhook-item-url">${w.url}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span class="webhook-item-tag tag-${w.type}">${w.type}</span>
+          <button class="btn-delete" onclick="deleteWebhook(event,'${w.id}')" title="Delete">✕</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateBadge() {
+  document.getElementById('webhook-count').textContent = `${webhooks.length} webhook${webhooks.length !== 1 ? 's' : ''}`;
+}
+
+// ─── Select / Render Panel ────────────────────────────────────────────────────
+function selectWebhook(id) {
+  activeId = id;
+  lastResponse = null;
+  const w = webhooks.find(x => x.id === id);
+  fields = w.fields ? JSON.parse(JSON.stringify(w.fields)) : [];
+  renderSidebar();
+  renderPanel(w);
+}
+
+function renderPanel(w) {
+  const panel = document.getElementById('panel-body');
+  panel.innerHTML = `
+    <div class="panel-top">
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Selected Webhook</div>
+        <div class="panel-name">⚡ <span>${w.name}</span></div>
+        ${w.desc ? `<div style="font-size:13px;color:var(--muted2);margin-top:5px">${w.desc}</div>` : ''}
+      </div>
+      <div class="panel-actions">
+        <button class="btn btn-ghost" onclick="copyUrl('${w.url}')">⎘ Copy URL</button>
+        <button class="btn btn-primary" id="run-btn" onclick="runWebhook()">▶ Run</button>
+      </div>
+    </div>
+
+    <!-- URL -->
+    <div class="section">
+      <div class="section-label">Endpoint</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="input" style="flex:1;display:flex;align-items:center;gap:8px;cursor:default">
+          <span style="font-family:'DM Mono',monospace;font-size:10px;background:rgba(99,220,255,0.1);color:var(--accent);padding:2px 7px;border-radius:6px;flex-shrink:0">POST</span>
+          <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${w.url}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payload Fields -->
+    <div class="section">
+      <div class="section-label">Payload Fields</div>
+      <div class="fields-grid" id="fields-grid"></div>
+      <div style="margin-top:10px">
+        <button class="btn-add-field" onclick="addField()">＋ Add field</button>
+      </div>
+    </div>
+
+    <!-- Payload Preview -->
+    <div class="section">
+      <div class="section-label">Payload Preview</div>
+      <div class="response-body" id="payload-preview" style="border-radius:8px;border:1px solid var(--border);min-height:60px">{}</div>
+    </div>
+
+    <!-- Response -->
+    <div id="response-section"></div>
+  `;
+
+  renderFields();
+}
+
+// ─── Fields ───────────────────────────────────────────────────────────────────
+function renderFields() {
+  const grid = document.getElementById('fields-grid');
+  if (!grid) return;
+
+  if (fields.length === 0) {
+    grid.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:4px 0">No fields defined. Add fields to build your payload.</div>`;
+    updatePayloadPreview();
+    return;
+  }
+
+  grid.innerHTML = fields.map((f, i) => `
+    <div class="field-row" id="field-${i}">
+      <input class="field-input" placeholder="key" value="${f.key}" oninput="updateField(${i},'key',this.value)" />
+      <input class="field-input" placeholder="value" value="${f.value||''}" oninput="updateField(${i},'value',this.value)" style="color:var(--accent)" />
+      <button class="field-remove" onclick="removeField(${i})">✕</button>
+    </div>
+  `).join('');
+
+  updatePayloadPreview();
+}
+
+function addField() {
+  fields.push({ key: '', value: '' });
+  renderFields();
+  // focus first empty key
+  setTimeout(() => {
+    const inputs = document.querySelectorAll('#fields-grid .field-row:last-child input');
+    if (inputs[0]) inputs[0].focus();
+  }, 50);
+}
+
+function removeField(i) {
+  fields.splice(i, 1);
+  renderFields();
+}
+
+function updateField(i, prop, val) {
+  fields[i][prop] = val;
+  updatePayloadPreview();
+  // save fields back to webhook
+  const w = webhooks.find(x => x.id === activeId);
+  if (w) { w.fields = fields; save(); }
+}
+
+function updatePayloadPreview() {
+  const el = document.getElementById('payload-preview');
+  if (!el) return;
+  const obj = {};
+  fields.forEach(f => { if (f.key) obj[f.key] = f.value || ''; });
+  el.textContent = JSON.stringify(obj, null, 2);
+}
+
+// ─── Run Webhook ──────────────────────────────────────────────────────────────
+async function runWebhook() {
+  if (isLoading) return;
+  const w = webhooks.find(x => x.id === activeId);
+  if (!w) return;
+
+  if (!w.url || w.url === 'N8N_WEBHOOK_URL') {
+    toast('Set a valid webhook URL first', 'error');
+    return;
+  }
+
+  const payload = {};
+  fields.forEach(f => { if (f.key) payload[f.key] = f.value || ''; });
+
+  isLoading = true;
+  const btn = document.getElementById('run-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:14px;height:14px"></div> Running…'; }
+
+  // Show loader in response section
+  const respSec = document.getElementById('response-section');
+  if (respSec) respSec.innerHTML = `<div class="loader"><div class="spinner"></div> Sending request…</div>`;
+
+  const t0 = Date.now();
+  try {
+    const res = await fetch(w.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      mode: 'no-cors'
+    });
+
+    const elapsed = Date.now() - t0;
+    const isOk = res.ok;
+    const statusCls = isOk ? 'status-ok' : 'status-err';
+    let bodyText = await res.text();
+    let parsed = null;
+
+    try { parsed = JSON.parse(bodyText); } catch (_) {}
+
+    if (respSec) {
+      respSec.innerHTML = `
+        <div class="section">
+          <div class="section-label">Response</div>
+          <div class="response-area">
+            <div class="response-bar">
+              <div class="response-status ${statusCls}">
+                <span class="status-dot"></span>
+                <span class="status-code">${res.status} ${res.statusText}</span>
+              </div>
+              <div class="response-time">${elapsed}ms</div>
+            </div>
+            <div class="response-body" id="resp-body">${syntaxHL(bodyText)}</div>
+          </div>
+        </div>
+        ${renderRichOutput(parsed)}
+      `;
+    }
+
+    toast(isOk ? 'Request successful' : `Error ${res.status}`, isOk ? 'success' : 'error');
+  } catch (err) {
+    const elapsed = Date.now() - t0;
+    if (respSec) {
+      respSec.innerHTML = `
+        <div class="section">
+          <div class="section-label">Response</div>
+          <div class="response-area">
+            <div class="response-bar">
+              <div class="response-status status-err">
+                <span class="status-dot"></span>
+                <span class="status-code">Network Error</span>
+              </div>
+              <div class="response-time">${elapsed}ms</div>
+            </div>
+            <div class="response-body" style="color:var(--danger)">${err.message}</div>
+          </div>
+        </div>
+      `;
+    }
+    toast('Network error — check CORS or URL', 'error');
+  } finally {
+    isLoading = false;
+    if (btn) { btn.disabled = false; btn.innerHTML = '▶ Run'; }
+  }
+}
+
+function renderRichOutput(parsed) {
+  if (!parsed) return '';
+  let html = '';
+
+  // Visual prompts
+  if (parsed.visual_prompts && Array.isArray(parsed.visual_prompts)) {
+    html += `<div class="section">
+      <div class="section-label">Visual Prompts</div>
+      <div class="prompt-cards">
+        ${parsed.visual_prompts.map((p,i) => `
+          <div class="prompt-card">
+            <div class="prompt-card-num">PROMPT ${String(i+1).padStart(2,'0')}</div>
+            ${p}
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Images
+  if (parsed.images && Array.isArray(parsed.images)) {
+    html += `<div class="section">
+      <div class="section-label">Images</div>
+      <div class="images-grid">
+        ${parsed.images.map(img => `<img class="result-img" src="${img.url||img}" alt="result" />`).join('')}
+      </div>
+    </div>`;
+  }
+
+  return html;
+}
+
+function syntaxHL(str) {
+  return str
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"([^"]+)":/g,'<span style="color:var(--accent);">"$1"</span>:')
+    .replace(/: "([^"]+)"/g,': <span style="color:var(--accent3);">"$1"</span>')
+    .replace(/: (\d+)/g,': <span style="color:var(--warning);">$1</span>')
+    .replace(/: (true|false|null)/g,': <span style="color:var(--accent2);">$1</span>');
+}
+
+// ─── Add / Delete Webhook ─────────────────────────────────────────────────────
+function openAddModal() {
+  document.getElementById('add-modal').classList.add('open');
+  setTimeout(() => document.getElementById('new-name').focus(), 100);
+}
+
+function closeAddModal() {
+  document.getElementById('add-modal').classList.remove('open');
+  ['new-name','new-url','new-desc'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('new-type').value = 'custom';
+}
+
+function addWebhook() {
+  const name = document.getElementById('new-name').value.trim();
+  const url = document.getElementById('new-url').value.trim();
+  const type = document.getElementById('new-type').value;
+  const desc = document.getElementById('new-desc').value.trim();
+
+  if (!name) { toast('Enter a name', 'error'); return; }
+  if (!url) { toast('Enter a webhook URL', 'error'); return; }
+
+  const w = { id: 'wh-' + Date.now(), name, url, type, desc, fields: [] };
+  webhooks.push(w);
+  save();
+  closeAddModal();
+  selectWebhook(w.id);
+  toast(`"${name}" added`, 'success');
+}
+
+function deleteWebhook(e, id) {
+  e.stopPropagation();
+  const w = webhooks.find(x => x.id === id);
+  if (!confirm(`Delete "${w?.name}"?`)) return;
+  webhooks = webhooks.filter(x => x.id !== id);
+  if (activeId === id) {
+    activeId = null;
+    document.getElementById('panel-body').innerHTML = `
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">🔗</div>
+        <h3>No webhook selected</h3>
+        <p>Add a webhook from the sidebar or select one to start sending requests.</p>
+      </div>`;
+  }
+  save();
+  toast('Webhook deleted', 'info');
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function copyUrl(url) {
+  navigator.clipboard.writeText(url).then(() => toast('URL copied', 'success'));
+}
+
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  const icons = { success:'✓', error:'✕', info:'ℹ' };
+  el.innerHTML = `<span>${icons[type]||''}</span> ${msg}`;
+  const c = document.getElementById('toast-container');
+  c.appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateX(20px)'; el.style.transition='all 0.3s'; setTimeout(()=>el.remove(),300); }, 2600);
+}
+
+// Close modal on overlay click
+document.getElementById('add-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddModal();
+});
+
+// Enter to submit modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeAddModal();
+  if (e.key === 'Enter' && document.getElementById('add-modal').classList.contains('open')) addWebhook();
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+renderSidebar();
+updateBadge();
+// Auto-select first
+if (webhooks.length > 0) selectWebhook(webhooks[0].id);
+</script>
+</body>
+</html>
